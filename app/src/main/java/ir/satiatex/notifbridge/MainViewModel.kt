@@ -23,6 +23,8 @@ data class UiState(
     val quietEnd: Int = 7 * 60,
     val includeTitle: Boolean = false,
     val masterOn: Boolean = true,
+    val fixLetters: Boolean = true,
+    val fixDigits: Boolean = true,
     val query: String = "",
 )
 
@@ -38,6 +40,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             quietEnd = prefs.quietEnd,
             includeTitle = prefs.includeTitle,
             masterOn = prefs.masterOn,
+            fixLetters = prefs.fixLetters,
+            fixDigits = prefs.fixDigits,
         )
     )
     val state: StateFlow<UiState> = _state.asStateFlow()
@@ -93,6 +97,16 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         val ctx = getApplication<Application>()
         if (on) KeepAlive.start(ctx) else KeepAlive.stop(ctx)
         _state.update { it.copy(masterOn = on) }
+    }
+
+    fun setFixLetters(on: Boolean) {
+        prefs.fixLetters = on
+        _state.update { it.copy(fixLetters = on) }
+    }
+
+    fun setFixDigits(on: Boolean) {
+        prefs.fixDigits = on
+        _state.update { it.copy(fixDigits = on) }
     }
 
     fun setIncludeTitle(on: Boolean) {

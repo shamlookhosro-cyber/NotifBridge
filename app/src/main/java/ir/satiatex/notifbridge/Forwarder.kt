@@ -35,8 +35,9 @@ object Forwarder {
     fun post(ctx: Context, id: Int, appLabel: String, text: String, vib: Vib) {
         if (ContextCompat.checkSelfPermission(ctx, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return
         ensureChannel(ctx, vib)
-        val title = TextFix.convert(appLabel)
-        val body = TextFix.convert(text)
+        val p = Prefs(ctx)
+        val title = TextFix.convert(appLabel, p.fixLetters, p.fixDigits)
+        val body = TextFix.convert(text, p.fixLetters, p.fixDigits)
         val n = NotificationCompat.Builder(ctx, channelId(vib))
             .setSmallIcon(R.drawable.ic_notif)
             .setContentTitle(title)

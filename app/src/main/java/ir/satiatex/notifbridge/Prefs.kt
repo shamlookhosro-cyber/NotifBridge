@@ -49,6 +49,14 @@ class Prefs(context: Context) {
         get() = sp.getBoolean("master_on", true)
         set(v) = sp.edit().putBoolean("master_on", v).apply()
 
+    var fixLetters: Boolean
+        get() = sp.getBoolean("fix_letters", true)
+        set(v) = sp.edit().putBoolean("fix_letters", v).apply()
+
+    var fixDigits: Boolean
+        get() = sp.getBoolean("fix_digits", true)
+        set(v) = sp.edit().putBoolean("fix_digits", v).apply()
+
     var includeTitle: Boolean
         get() = sp.getBoolean("include_title", false)
         set(v) = sp.edit().putBoolean("include_title", v).apply()
