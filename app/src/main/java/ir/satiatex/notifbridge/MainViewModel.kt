@@ -16,34 +16,56 @@ data class AppItem(val pkg: String, val label: String)
 
 data class UiState(
     val apps: List<AppItem> = emptyList(),
+    val query: String = "",
     val enabled: Set<String> = emptySet(),
     val vib: Map<String, Vib> = emptyMap(),
+    val masterOn: Boolean = true,
+    val includeTitle: Boolean = false,
+    val fixLetters: Boolean = true,
+    val fixDigits: Boolean = true,
     val quietOn: Boolean = true,
     val quietStart: Int = 23 * 60,
     val quietEnd: Int = 7 * 60,
-    val includeTitle: Boolean = false,
-    val masterOn: Boolean = true,
-    val fixLetters: Boolean = true,
-    val fixDigits: Boolean = true,
-    val query: String = "",
+    val allowWords: List<String> = emptyList(),
+    val blockWords: List<String> = emptyList(),
+    val kwVib: Vib = Vib.TRIPLE,
+    val kwIgnoreQuiet: Boolean = true,
+    val skipSummary: Boolean = true,
+    val stripCounts: Boolean = false,
+    val callOn: Boolean = true,
+    val callInterval: Int = 4,
+    val callRepeats: Int = 8,
+    val callVib: Vib = Vib.TRIPLE,
+    val callQuietOk: Boolean = false,
 )
 
 class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val prefs = Prefs(app)
 
-    private val _state = MutableStateFlow(
-        UiState(
-            enabled = prefs.enabledApps,
-            vib = prefs.allVib(),
-            quietOn = prefs.quietOn,
-            quietStart = prefs.quietStart,
-            quietEnd = prefs.quietEnd,
-            includeTitle = prefs.includeTitle,
-            masterOn = prefs.masterOn,
-            fixLetters = prefs.fixLetters,
-            fixDigits = prefs.fixDigits,
-        )
+    private fun snapshot(base: UiState) = base.copy(
+        enabled = prefs.enabledApps,
+        vib = prefs.allVib(),
+        masterOn = prefs.masterOn,
+        includeTitle = prefs.includeTitle,
+        fixLetters = prefs.fixLetters,
+        fixDigits = prefs.fixDigits,
+        quietOn = prefs.quietOn,
+        quietStart = prefs.quietStart,
+        quietEnd = prefs.quietEnd,
+        allowWords = prefs.allowWords,
+        blockWords = prefs.blockWords,
+        kwVib = prefs.kwVib,
+        kwIgnoreQuiet = prefs.kwIgnoreQuiet,
+        skipSummary = prefs.skipSummary,
+        stripCounts = prefs.stripCounts,
+        callOn = prefs.callOn,
+        callInterval = prefs.callInterval,
+        callRepeats = prefs.callRepeats,
+        callVib = prefs.callVib,
+        callQuietOk = prefs.callQuietOk,
     )
+
+    private val _state = MutableStateFlow(snapshot(UiState()))
     val state: StateFlow<UiState> = _state.asStateFlow()
 
     init {
@@ -54,63 +76,47 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private fun loadApps(): List<AppItem> {
-        val pm = getApplication<Application>().packageManager
+        val ctx = getApplication<Application>()
+        val pm = ctx.packageManager
         val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
         return pm.queryIntentActivities(intent, 0)
             .map { AppItem(it.activityInfo.packageName, it.loadLabel(pm).toString()) }
-            .filter { it.pkg != getApplication<Application>().packageName }
+            .filter { it.pkg != ctx.packageName }
             .distinctBy { it.pkg }
             .sortedBy { it.label.lowercase() }
     }
 
-    fun vibOf(pkg: String): Vib = _state.value.vib[pkg] ?: Vib.SHORT
+    /** Applies a change to Prefs and refreshes the UI state from it. */
+    fun edit(block: Prefs.() -> Unit) {
+        prefs.block()
+        _state.update { snapshot(it) }
+    }
 
     fun setQuery(q: String) = _state.update { it.copy(query = q) }
 
-    fun setEnabled(pkg: String, on: Boolean) {
-        prefs.setAppEnabled(pkg, on)
-        _state.update { it.copy(enabled = prefs.enabledApps) }
-    }
-
-    fun setVib(pkg: String, v: Vib) {
-        prefs.setVib(pkg, v)
-        _state.update { it.copy(vib = it.vib + (pkg to v)) }
-    }
-
-    fun setQuietOn(on: Boolean) {
-        prefs.quietOn = on
-        _state.update { it.copy(quietOn = on) }
-    }
-
-    fun setQuietStart(min: Int) {
-        prefs.quietStart = min
-        _state.update { it.copy(quietStart = min) }
-    }
-
-    fun setQuietEnd(min: Int) {
-        prefs.quietEnd = min
-        _state.update { it.copy(quietEnd = min) }
-    }
+    fun vibOf(pkg: String): Vib = _state.value.vib[pkg] ?: Vib.SHORT
 
     fun setMasterOn(on: Boolean) {
-        prefs.masterOn = on
+        edit { masterOn = on }
         val ctx = getApplication<Application>()
         if (on) KeepAlive.start(ctx) else KeepAlive.stop(ctx)
-        _state.update { it.copy(masterOn = on) }
     }
 
-    fun setFixLetters(on: Boolean) {
-        prefs.fixLetters = on
-        _state.update { it.copy(fixLetters = on) }
+    fun addWord(allow: Boolean, raw: String) {
+        val w = raw.trim()
+        if (w.isEmpty()) return
+        edit {
+            if (allow) {
+                if (w !in allowWords) allowWords = allowWords + w
+            } else {
+                if (w !in blockWords) blockWords = blockWords + w
+            }
+        }
     }
 
-    fun setFixDigits(on: Boolean) {
-        prefs.fixDigits = on
-        _state.update { it.copy(fixDigits = on) }
-    }
-
-    fun setIncludeTitle(on: Boolean) {
-        prefs.includeTitle = on
-        _state.update { it.copy(includeTitle = on) }
+    fun removeWord(allow: Boolean, w: String) {
+        edit {
+            if (allow) allowWords = allowWords - w else blockWords = blockWords - w
+        }
     }
 }
